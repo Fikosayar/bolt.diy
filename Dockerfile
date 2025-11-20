@@ -3,8 +3,8 @@ FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-# Corepack yerine npm ile pnpm kuruyoruz (Daha güvenli)
-RUN npm install -g pnpm
+# DÜZELTME BURADA: Wrangler'ı global olarak kuruyoruz ki sistem tanısın
+RUN npm install -g pnpm wrangler
 
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 FROM base AS prod-deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
+# --prod kaldırdık, her şeyi yüklesin ki eksik çıkmasın
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
 
 # 3. Derleme (Build)
 FROM base AS build
@@ -27,16 +28,13 @@ RUN pnpm run build
 FROM base
 WORKDIR /app
 
-# Dosyaları kopyala
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app/build
 COPY --from=build /app/package.json /app/package.json
-
-# EKSİK OLABİLECEK DOSYALARI GARANTİLEMEK İÇİN:
 COPY --from=build /app/bindings.sh /app/bindings.sh
-# Bu dosya bazen gereklidir:
 COPY --from=build /app/worker-configuration.d.ts /app/worker-configuration.d.ts
 
+# Dosya izinlerini ve Wrangler'ı garantiye alıyoruz
 RUN chmod +x /app/bindings.sh
 
 ENV PORT=5173

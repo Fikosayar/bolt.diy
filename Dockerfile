@@ -3,7 +3,7 @@ FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-# Gerekli araçları kur
+# Wrangler ve Pnpm kurulumu
 RUN npm install -g pnpm wrangler
 RUN apt-get update && apt-get install -y python3 make g++ bash && rm -rf /var/lib/apt/lists/*
 
@@ -22,7 +22,7 @@ COPY . .
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm run build
 
-# 4. Çalıştırma (Runtime)
+# 4. Çalıştırma
 FROM base
 WORKDIR /app
 
@@ -32,14 +32,13 @@ COPY --from=build /app/package.json /app/package.json
 COPY --from=build /app/bindings.sh /app/bindings.sh
 COPY --from=build /app/worker-configuration.d.ts /app/worker-configuration.d.ts
 
-# Dosya izinlerini düzelt
 RUN chmod +x /app/bindings.sh
 
 ENV PORT=8788
 ENV HOST=0.0.0.0
 EXPOSE 8788
 
-# KRİTİK DÜZELTME:
-# Komutu parçalara ayırarak Docker'ın bunu bir "Dosya" değil "Komut" olarak anlamasını sağlıyoruz.
-# /bin/bash -c "..." formatı bu hatayı %100 çözer.
-CMD ["/bin/bash", "-c", ". ./bindings.sh && wrangler pages dev ./build/client --ip 0.0.0.0 --port 8788"]
+# DÜZELTME BURADA:
+# --script yerine --script-path kullanıyoruz.
+# Bu sayede "Functions" bulunacak ve 404 hatası 200 OK'e dönecek.
+CMD ["/bin/bash", "-c", ". ./bindings.sh && wrangler pages dev ./build/client --script-path ./build/server/index.js --ip 0.0.0.0 --port 8788"]

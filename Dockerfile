@@ -3,7 +3,7 @@ FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-# Wrangler'ı global kuruyoruz (Sistemin tanıması için şart)
+# Wrangler ve Pnpm kurulumu
 RUN npm install -g pnpm wrangler
 
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
 
-# 3. Derleme
+# 3. Derleme (Build)
 FROM base AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -40,7 +40,5 @@ ENV PORT=8788
 ENV HOST=0.0.0.0
 EXPOSE 8788
 
-# KRİTİK DÜZELTME BURADA:
-# --ip 0.0.0.0 diyerek dışarıya açıyoruz.
-# --port 8788 diyerek portu sabitliyoruz.
-CMD ["/bin/sh", "-c", "bindings=$(./bindings.sh) && wrangler pages dev ./build/client $bindings --ip 0.0.0.0 --port 8788 --no-open"]
+# DÜZELTME: --no-open parametresi kaldırıldı
+CMD ["/bin/sh", "-c", "bindings=$(./bindings.sh) && wrangler pages dev ./build/client $bindings --ip 0.0.0.0 --port 8788"]

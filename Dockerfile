@@ -1,41 +1,39 @@
-# Node 20 (En stabil)
+# 1. Taban İmaj
 FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
-# Python ve gerekli araçlar
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# --- AŞAMA 1: BAĞIMLILIKLAR ---
-FROM base AS prod-deps
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-# DÜZELTME BURADA: --ignore-scripts eklendi (Husky hatasını çözer)
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
-
-# --- AŞAMA 2: DERLEME (BUILD) ---
+# 2. Derleme ve Kurulum (Tek Aşamada Hepsini Hazırlayalım)
 FROM base AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-# Build için tüm paketler lazım (ignore-scripts burada da güvenli olabilir ama build scriptleri çalışmalı)
+# Wrangler ve diğer araçların çalışması için tüm bağımlılıkları yüklüyoruz
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+
 COPY . .
 # Bellek ayarı
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-# Uygulamayı derle
 RUN pnpm run build
 
-# --- AŞAMA 3: ÇALIŞTIRMA ---
+# 3. Çalıştırma (Final Sahnesi)
 FROM base
 WORKDIR /app
-COPY --from=prod-deps /app/node_modules /app/node_modules
+
+# Build aşamasından her şeyi alıyoruz (Node_modules dahil)
+COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/build /app/build
 COPY --from=build /app/package.json /app/package.json
 
-# Port Ayarı
+# İŞTE EKSİK OLAN PARÇA BUYDU:
+COPY --from=build /app/bindings.sh /app/bindings.sh
+
+# Dosyaya çalıştırma izni veriyoruz
+RUN chmod +x /app/bindings.sh
+
 ENV PORT=5173
 ENV HOST=0.0.0.0
 EXPOSE 5173
 
-# Başlat
 CMD [ "pnpm", "start" ]

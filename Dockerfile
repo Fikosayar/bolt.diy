@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
 
-# 3. Derleme (Build)
+# 3. Derleme
 FROM base AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -35,12 +35,15 @@ COPY --from=build /app/worker-configuration.d.ts /app/worker-configuration.d.ts
 
 RUN chmod +x /app/bindings.sh
 
-# Portu 8788 olarak sabitliyoruz
+# Port ve Host Ayarları
 ENV PORT=8788
 ENV HOST=0.0.0.0
+# Wrangler için IP ve Port Ayarı (Kritik)
+ENV WRANGLER_IP=0.0.0.0
+ENV WRANGLER_PORT=8788
+
 EXPOSE 8788
 
-# DÜZELTME BURADA:
-# --script ./build/server/index.js parametresini ekledik.
-# Artık Wrangler hem Client'ı hem Server'ı görecek.
-CMD ["/bin/sh", "-c", "bindings=$(./bindings.sh) && wrangler pages dev ./build/client --script ./build/server/index.js $bindings --ip 0.0.0.0 --port 8788"]
+# DÜZELTME: Karmaşık wrangler komutu yerine standart başlatma komutunu kullanıyoruz.
+# bindings.sh dosyasını çalıştırıp, ortam değişkenlerini yükleyerek start veriyoruz.
+CMD ["/bin/sh", "-c", ". ./bindings.sh && pnpm run start"]

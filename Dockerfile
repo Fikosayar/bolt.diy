@@ -14,7 +14,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --ignore-scripts
 
-# 3. Derleme
+# 3. Derleme (Build)
 FROM base AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -35,15 +35,11 @@ COPY --from=build /app/worker-configuration.d.ts /app/worker-configuration.d.ts
 
 RUN chmod +x /app/bindings.sh
 
-# Port ve Host Ayarları
 ENV PORT=8788
 ENV HOST=0.0.0.0
-# Wrangler için IP ve Port Ayarı (Kritik)
-ENV WRANGLER_IP=0.0.0.0
-ENV WRANGLER_PORT=8788
-
 EXPOSE 8788
 
-# DÜZELTME: Karmaşık wrangler komutu yerine standart başlatma komutunu kullanıyoruz.
-# bindings.sh dosyasını çalıştırıp, ortam değişkenlerini yükleyerek start veriyoruz.
-CMD ["/bin/sh", "-c", ". ./bindings.sh && pnpm run start"]
+# KRİTİK DÜZELTME BURADA:
+# /bin/sh yerine /bin/bash kullanıyoruz.
+# Bu sayede script içindeki parantez hatası düzelecek.
+CMD ["/bin/bash", "-c", ". ./bindings.sh && pnpm run start"]
